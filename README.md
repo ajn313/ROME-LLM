@@ -1,5 +1,7 @@
 # Recurrent Optimization via Machine Editing: ROME
-The ROME tool automates hardware design with minimal human input. A large language model (LLM) is utilized to generate and fix errors in code within a multi-stage design pipeline. 
+The ROME tool automates hardware design with minimal human input. A large language model (LLM) is utilized to generate and fix errors in code within a multi-stage design pipeline.
+
+![ROME-flowchart](https://github.com/ajn313/ROME-LLM/blob/main/supplements/rome_llm_flowchart.pdf)
 
 We provide a [Colab notebook](https://github.com/ajn313/ROME-LLM/blob/main/ROME_demo.ipynb) which implements the tool. GPT-4 is used by default which will require an OpenAI API Key, but this can be modified easily.
 

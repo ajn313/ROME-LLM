@@ -9,7 +9,7 @@ The necessary inputs include the names of a series of simpler submodules which c
 # Paper on arXiv:
 [Link](https://arxiv.org/abs/2407.18276)
 # BibTeX:
-'''
+```
 @misc{nakkab2024romebuiltsinglestep,
       title={Rome was Not Built in a Single Step: Hierarchical Prompting for LLM-based Chip Design}, 
       author={Andre Nakkab and Sai Qian Zhang and Ramesh Karri and Siddharth Garg},
@@ -19,4 +19,4 @@ The necessary inputs include the names of a series of simpler submodules which c
       primaryClass={cs.AR},
       url={https://arxiv.org/abs/2407.18276}, 
 }
-'''
+```

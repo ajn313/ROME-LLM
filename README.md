@@ -24,3 +24,5 @@ GitHub still under construction.
       url={https://arxiv.org/abs/2407.18276}, 
 }
 ```
+## Acknowledgements
+Special thanks to [Jason Blocklove](https://github.com/JBlocklove) for his work on error correction feedback loops for hardware design

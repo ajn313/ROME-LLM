@@ -1,5 +1,5 @@
 # Recurrent Optimization via Machine Editing: ROME
-The ROME tool automates hardware design with minimal human input. A large language model (LLM) is utilized to generate and fix errors in code within a multi-stage design pipeline.
+The ROME tool automates hardware design with minimal human input. A large language model (LLM) is utilized to generate Verilog and fix errors in the resultant modules within a multi-stage design pipeline.
 
 ![ROME-flowchart](https://github.com/ajn313/ROME-LLM/blob/main/supplements/flowchart.png)
 

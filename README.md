@@ -3,7 +3,7 @@ The ROME tool automates hardware design with minimal human input. A large langua
 
 ![ROME-flowchart](https://github.com/ajn313/ROME-LLM/blob/main/supplements/flowchart.png)
 
-We provide a [Colab notebook](https://github.com/ajn313/ROME-LLM/blob/main/ROME_Demo.ipynb) which implements the tool. GPT-4 is used by default which will require an OpenAI API Key, but instructions to modify this will be provided.
+We provide a [Colab notebook](https://github.com/ajn313/ROME-LLM/blob/main/ROME_Demo.ipynb) which implements the tool. ChatGPT is used by default which will require an OpenAI API Key, but most major frontier models are supported, just uncomment the relevant lines of code & comment out the corresponding OpenAI lines.
 
 The necessary inputs include the names of a series of simpler submodules which can be built up into a more complex target modules, as well as unit testbenches for each submodule. We include testbenches for a few hierarchical arcitectures, and more will continue to be added. 
 

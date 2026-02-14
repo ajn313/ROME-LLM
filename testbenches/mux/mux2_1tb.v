@@ -33,7 +33,7 @@ module tb_mux2_1;
 
             // Check the output and display the result
             if ((select == 0 && out == in1) || (select == 1 && out == in2)) begin
-                $display("Test %d passed!", i);
+                $display("Test %d passed", i);
             end else begin
                 $display("Test %d failed!", i);
             end
@@ -44,7 +44,7 @@ module tb_mux2_1;
         select = 0;  // First check with select 0
         #10;
         if (out == in1) begin
-            $display("Test 4 passed!");
+            $display("Test 4 passed");
         end else begin
             $display("Test 4 failed!");
         end
@@ -60,3 +60,4 @@ module tb_mux2_1;
         $finish;  // Terminate simulation
     end
 endmodule
+

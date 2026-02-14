@@ -343,7 +343,7 @@ module aes_key_memtb();
     begin
       if (error_ctr == 0)
         begin
-          $display("*** All %02d test cases completed successfully", tc_ctr);
+          $display("*** All %02d test cases completed successfully. Test passed!");
         end
       else
         begin
@@ -606,9 +606,6 @@ module aes_key_memtb();
 
       display_test_result();
 
-      $display("");
-      $display("   -= Testbench for aes key mem completed =-");
-      $display("    =======================================");
       $finish;
     end // aes_key_mem_test
 endmodule 

@@ -22,15 +22,15 @@ initial begin
 
     // Test 0: sel = 00, expected output: in[0]
     #10 sel = 2'b00;
-    #10 if (out == in[0]) $display("Test 0 passed!");
+    #10 if (out == in[0]) $display("Test 0 passed");
 
     // Test 1: sel = 01, expected output: in[1]
     #10 sel = 2'b01;
-    #10 if (out == in[1]) $display("Test 1 passed!");
+    #10 if (out == in[1]) $display("Test 1 passed");
 
     // Test 2: sel = 10, expected output: in[2]
     #10 sel = 2'b10;
-    #10 if (out == in[2]) $display("Test 2 passed!");
+    #10 if (out == in[2]) $display("Test 2 passed");
 
     // Test 3: sel = 11, expected output: in[3]
     #10 sel = 2'b11;
@@ -41,3 +41,4 @@ initial begin
 end
 
 endmodule
+

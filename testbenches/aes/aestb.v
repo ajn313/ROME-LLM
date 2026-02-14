@@ -165,7 +165,7 @@ module aestb();
     begin
       if (error_ctr == 0)
         begin
-          $display("*** All %02d test cases completed successfully", tc_ctr);
+          $display("*** All %02d test cases completed successfully. Test passed!");
         end
       else
         begin

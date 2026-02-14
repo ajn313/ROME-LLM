@@ -139,8 +139,8 @@ module aes_key_memtb();
         begin
           $display("Sbox functionality:");
           $display("sboxw = 0x%08x", sbox.sboxw);
-          $display("tmp_new_sbox0 = 0x%02x, tmp_new_sbox1 = 0x%02x, tmp_new_sbox2 = 0x%02x, tmp_new_sbox3",
-                   sbox.tmp_new_sbox0, sbox.tmp_new_sbox1, sbox.tmp_new_sbox2, sbox.tmp_new_sbox3);
+          $display("tmp_new_sbox0 = 0x%02x, tmp_new_sbox1 = 0x%02x, tmp_new_sbox2 = 0x%02x, tmp_new_sbox3 = 0x%02x",
+                   sbox.new_sboxw[31:24], sbox.new_sboxw[23:16], sbox.new_sboxw[15:8], sbox.new_sboxw[7:0]);
           $display("new_sboxw = 0x%08x", sbox.new_sboxw);
           $display("");
         end
@@ -343,7 +343,7 @@ module aes_key_memtb();
     begin
       if (error_ctr == 0)
         begin
-          $display("*** All %02d test cases completed successfully. Test passed!");
+          $display("*** All %02d test cases completed successfully. Test passed!", tc_ctr);
         end
       else
         begin
@@ -390,9 +390,9 @@ module aes_key_memtb();
       $display("    =====================================");
       $display("");
 
-      $display("Dumping all variables to tb_aes_key_mem vcd file.");
-      $dumpfile("tb_aes_key_mem.vcd");
-      $dumpvars(0, tb_aes_key_mem);
+      $display("Dumping all variables to aes_key_memtb vcd file.");
+      $dumpfile("aes_key_memtb.vcd");
+      $dumpvars(0, aes_key_memtb);
 
       init_sim();
       dump_dut_state();

@@ -191,7 +191,7 @@ module aes_coretb();
     begin
       if (error_ctr == 0)
         begin
-          $display("*** All %02d test cases completed successfully", tc_ctr);
+          $display("*** All %02d test cases completed successfully. Test passed!");
         end
       else
         begin
@@ -447,11 +447,7 @@ module aes_coretb();
                                  nist_ecb_256_enc_expected4, nist_plaintext4);
 
       display_test_result();
-      $display("");
 
-      $display("   -= Testbench for aes core cmpleted =-");
-      $display("     =================================");
-      $display("");
       $finish;
     end // aes_core_test
 endmodule

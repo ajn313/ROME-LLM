@@ -198,7 +198,7 @@ module aes_encipher_blocktb();
     begin
       if (error_ctr == 0)
         begin
-          $display("--- All %02d test cases completed successfully", tc_ctr);
+          $display("--- All %02d test cases completed successfully. Test passed!");
         end
       else
         begin
@@ -513,9 +513,5 @@ module aes_encipher_blocktb();
       test_nist_enc_256_4();
 
       display_test_result();
-      $display("");
-      $display("   -= Testbench for aes encipher block completed =-");
-      $display("     ============================================");
-      $finish;
     end 
 endmodule 

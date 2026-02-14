@@ -41,7 +41,7 @@ module aes_coretb();
   //----------------------------------------------------------------
   // Device Under Test.
   //----------------------------------------------------------------
-  aes_core dut(
+    aes_core dut(
                .clk(tb_clk),
                .reset_n(tb_reset_n),
 
@@ -54,8 +54,10 @@ module aes_coretb();
                .keylen(tb_keylen),
 
                .block(tb_block),
-               .result(tb_result)
+               .result(tb_result),
+               .result_valid(tb_result_valid)   // <-- ADD THIS
               );
+
 
 
   //----------------------------------------------------------------
@@ -191,7 +193,7 @@ module aes_coretb();
     begin
       if (error_ctr == 0)
         begin
-          $display("*** All %02d test cases completed successfully. Test passed!");
+          $display("*** All %02d test cases completed successfully. Test passed!", tc_ctr);
         end
       else
         begin
@@ -366,9 +368,9 @@ module aes_coretb();
       $display("     ================================");
       $display("");
 
-      $display("tb: Dumping all variables to tb_aes_core vcd file.");
-      $dumpfile("tb_aes_core.vcd");
-      $dumpvars(0, tb_aes_core);
+      $display("tb: Dumping all variables to aes_coretb vcd file.");
+      $dumpfile("aes_coretb.vcd");
+      $dumpvars(0, aes_coretb);
 
       init_sim();
       dump_dut_state();

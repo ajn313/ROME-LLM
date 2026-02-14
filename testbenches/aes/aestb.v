@@ -165,7 +165,7 @@ module aestb();
     begin
       if (error_ctr == 0)
         begin
-          $display("*** All %02d test cases completed successfully. Test passed!");
+          $display("*** All %02d test cases completed successfully. Test passed!", tc_ctr);
         end
       else
         begin
@@ -511,9 +511,9 @@ module aestb();
       $display("    ==============================");
       $display("");
 
-      $display("Dumping all variables to tb_aes vcd file.");
-      $dumpfile("tb_aes.vcd");
-      $dumpvars(0, tb_aes);
+      $display("Dumping all variables to aestb vcd file.");
+      $dumpfile("aestb.vcd");
+      $dumpvars(0, aestb);
 
       init_sim();
       dump_dut_state();

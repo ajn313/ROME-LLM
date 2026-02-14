@@ -181,7 +181,7 @@ module aes_decipher_blocktb();
     begin
       if (error_ctr == 0)
         begin
-          $display("*** All %02d test cases completed successfully. Test passed!");
+          $display("*** All %02d test cases completed successfully. Test passed!", tc_ctr);
         end
       else
         begin
@@ -259,14 +259,14 @@ module aes_decipher_blocktb();
 
 
   //----------------------------------------------------------------
-  // tb_aes_decipher_block
+  // aes_decipher_blocktb
   // The main test functionality.
   //
   // Test cases taken from NIST SP 800-38A:
   // http://csrc.nist.gov/publications/nistpubs/800-38a/sp800-38a.pdf
   //----------------------------------------------------------------
   initial
-    begin : tb_aes_decipher_block
+    begin : aes_decipher_blocktb
       reg [127 : 0] nist_plaintext0;
       reg [127 : 0] nist_plaintext1;
       reg [127 : 0] nist_plaintext2;
@@ -302,9 +302,9 @@ module aes_decipher_blocktb();
       $display("     ============================================");
       $display("");
 
-      $display("Dumping all variables to tb_aes_decipher_block vcd file.");
-      $dumpfile("tb_aes_decipher_block.vcd");
-      $dumpvars(0, tb_aes_decipher_block);
+      $display("Dumping all variables to aes_decipher_blocktb vcd file.");
+      $dumpfile("aes_decipher_blocktb.vcd");
+      $dumpvars(0, aes_decipher_blocktb);
 
       init_sim();
       dump_dut_state();
@@ -360,5 +360,5 @@ module aes_decipher_blocktb();
 
       display_test_result();
       $finish;
-    end // aes_core_test
+    end
 endmodule

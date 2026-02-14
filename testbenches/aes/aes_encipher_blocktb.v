@@ -198,7 +198,7 @@ module aes_encipher_blocktb();
     begin
       if (error_ctr == 0)
         begin
-          $display("--- All %02d test cases completed successfully. Test passed!");
+          $display("--- All %02d test cases completed successfully. Test passed!", tc_ctr);
         end
       else
         begin
@@ -484,18 +484,18 @@ module aes_encipher_blocktb();
 
 
   //----------------------------------------------------------------
-  // tb_aes_encipher_block
+  // aes_encipher_blocktb
   // The main test functionality.
   //----------------------------------------------------------------
   initial
-    begin : tb_aes_encipher_block
+    begin : aes_encipher_blocktb
       $display("   -= Testbench for aes encipher block started =-");
       $display("     ============================================");
       $display("");
 
-      $display("Dumping all variables to tb_aes_encipher_block vcd file.");
-      $dumpfile("tb_aes_encipher_block.vcd");
-      $dumpvars(0, tb_aes_encipher_block);
+      $display("Dumping all variables to aes_encipher_blocktb vcd file.");
+      $dumpfile("aes_encipher_blocktb.vcd");
+      $dumpvars(0, aes_encipher_blocktb);
 
       init_sim();
       reset_dut();

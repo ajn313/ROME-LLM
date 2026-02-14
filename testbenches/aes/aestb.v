@@ -524,10 +524,6 @@ module aestb();
 
       display_test_results();
 
-      $display("");
-      $display("   -= Testbench for AES completed =-");
-      $display("    ===============================");
-      $display("");
       $finish;
     end // main
 endmodule 

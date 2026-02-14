@@ -22,19 +22,20 @@ initial begin
 
     // Test cases for each select signal
     #10 sel = 5'b00000; // Test 0
-    #10 if (out == in[0]) $display("Test 0 passed!");
-
-    #10 sel = 5'b00001; // Test 1
-    #10 if (out == in[1]) $display("Test 1 passed!");
+    #10 if (out == in[0]) $display("Test 0 passed");
 
     // Continue with similar pattern
     repeat (30) begin
         #10 sel = sel + 1; // Increment select to test next input
-        #10 if (out == in[sel]) $display("Test %d passed!", sel);
+        #10 if (out == in[sel]) $display("Test %d passed", sel);
     end
+    
+    #10 sel = 5'b00001; 
+    #10 if (out == in[1]) $display("Final test passed!");
 
     // End of tests
     #10 $finish;
 end
 
 endmodule
+

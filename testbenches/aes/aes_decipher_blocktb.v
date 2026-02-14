@@ -181,7 +181,7 @@ module aes_decipher_blocktb();
     begin
       if (error_ctr == 0)
         begin
-          $display("*** All %02d test cases completed successfully", tc_ctr);
+          $display("*** All %02d test cases completed successfully. Test passed!");
         end
       else
         begin
@@ -359,10 +359,6 @@ module aes_decipher_blocktb();
 
 
       display_test_result();
-      $display("");
-      $display("   -= Testbench for aes decipher block completed =-");
-      $display("     ============================================");
-      $display("");
       $finish;
     end // aes_core_test
 endmodule

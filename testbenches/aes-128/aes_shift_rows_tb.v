@@ -124,4 +124,5 @@ module aes_shift_rows_tb;
     $finish;
   end
 
-endmodules
+
+endmodule

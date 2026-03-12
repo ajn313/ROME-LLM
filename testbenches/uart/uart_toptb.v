@@ -1,26 +1,45 @@
-`timescale 1ns/1ps
+`timescale 1ns/1ns
 
 module uart_toptb;
 
-  parameter CLOCK_PERIOD_NS = 40;
+  reg        clk;
+  reg        rst;
+  reg        rx;
+  reg        tx_start;
+  reg  [7:0] tx_data;
 
-  reg clk;
-  reg rst;
-  reg tx_start;
-  reg [7:0] tx_data;
-  reg rx;
-
-  wire tx;
+  wire       tx;
   wire [7:0] rx_data;
-  wire rx_valid;
-  wire tx_busy;
-  wire framing_error;
+  wire       rx_valid;
+  wire       tx_busy;
+  wire       framing_error;
 
   integer failures;
-  integer rx_wait_count;
+  integer test_num;
+  integer timeout_count;
+  integer valid_seen;
+
+  reg        rx_valid_seen;
+  reg [7:0]  rx_data_latched;
+  reg        framing_error_seen;
+
+  // --------------------------------------------------------------------------
+  // UART timing parameters, adapted from the reference style
+  // --------------------------------------------------------------------------
+  localparam integer BIT_RATE = 115200;
+  localparam integer CLK_HZ   = 25000000;
+  localparam integer BIT_P    = 1000000000 / BIT_RATE;
+  localparam integer CLK_P    = 1000000000 / CLK_HZ;
+  localparam integer CLK_P_2  = 500000000  / CLK_HZ;
 
   // DUT
-  uart_top uut (
+  uart_top
+  #(
+    .BIT_RATE(BIT_RATE),
+    .CLK_HZ(CLK_HZ)
+  )
+  uut
+  (
     .clk(clk),
     .rst(rst),
     .rx(rx),
@@ -33,296 +52,314 @@ module uart_toptb;
     .framing_error(framing_error)
   );
 
+  // --------------------------------------------------------------------------
   // Clock generation
-  initial begin
-    clk = 1'b0;
-    forever #(CLOCK_PERIOD_NS/2) clk = ~clk;
+  // --------------------------------------------------------------------------
+  always #(CLK_P_2) clk = ~clk;
+
+  // --------------------------------------------------------------------------
+  // Latch short rx_valid / framing_error pulses so they are not missed
+  // --------------------------------------------------------------------------
+  always @(posedge clk or posedge rst) begin
+    if (rst) begin
+      rx_valid_seen      <= 1'b0;
+      rx_data_latched    <= 8'h00;
+      framing_error_seen <= 1'b0;
+    end
+    else begin
+      if (rx_valid) begin
+        rx_valid_seen   <= 1'b1;
+        rx_data_latched <= rx_data;
+      end
+
+      if (framing_error)
+        framing_error_seen <= 1'b1;
+    end
   end
 
-  // Loopback connection:
-  // when transmitter is active, feed TX into RX;
-  // otherwise hold RX high (idle UART line)
-  always @(*) begin
-    if (tx_busy)
-      rx = tx;
-    else
-      rx = 1'b1;
-  end
-
-  // Wait for rx_valid with timeout to avoid hangs
-  task wait_for_rx_valid;
-    output integer timed_out;
+  // --------------------------------------------------------------------------
+  // Clear latched receive/error events between tests
+  // --------------------------------------------------------------------------
+  task clear_event_latches;
   begin
-    timed_out = 0;
-    rx_wait_count = 0;
-    while ((rx_valid !== 1'b1) && (rx_wait_count < 50000)) begin
+    rx_valid_seen      = 1'b0;
+    rx_data_latched    = 8'h00;
+    framing_error_seen = 1'b0;
+  end
+  endtask
+
+  // --------------------------------------------------------------------------
+  // Sends a single byte down the RX serial line
+  // 1 start bit, 8 data bits LSB-first, 1 stop bit
+  // --------------------------------------------------------------------------
+  task send_byte;
+    input [7:0] to_send;
+    integer i;
+  begin
+    $display("Send data 0x%02h at time %0d", to_send, $time);
+
+    #BIT_P;
+    rx = 1'b0;  // start bit
+
+    for (i = 0; i < 8; i = i + 1) begin
+      #BIT_P;
+      rx = to_send[i];
+    end
+
+    #BIT_P;
+    rx = 1'b1;  // stop bit
+
+    #1000;
+  end
+  endtask
+
+  // --------------------------------------------------------------------------
+  // Sends a byte with an invalid stop bit
+  // Hold low long enough to make the framing error unambiguous
+  // --------------------------------------------------------------------------
+  task send_byte_bad_stop;
+    input [7:0] to_send;
+    integer i;
+  begin
+    $display("Send data with bad stop 0x%02h at time %0d", to_send, $time);
+
+    #BIT_P;
+    rx = 1'b0;  // start bit
+
+    for (i = 0; i < 8; i = i + 1) begin
+      #BIT_P;
+      rx = to_send[i];
+    end
+
+    #BIT_P;
+    rx = 1'b0;  // invalid stop bit
+
+    #BIT_P;
+    rx = 1'b0;  // keep low one more bit period
+
+    #BIT_P;
+    rx = 1'b1;  // return line to idle
+
+    #1000;
+  end
+  endtask
+
+  // --------------------------------------------------------------------------
+  // Wait for a received byte with timeout
+  // --------------------------------------------------------------------------
+  task wait_for_valid;
+    output integer saw_valid;
+    integer timeout_limit;
+  begin
+    saw_valid = 0;
+    timeout_count = 0;
+    timeout_limit = 20 * (BIT_P / CLK_P + 1);
+
+    while ((rx_valid_seen !== 1'b1) && (timeout_count < timeout_limit)) begin
       @(posedge clk);
-      rx_wait_count = rx_wait_count + 1;
+      timeout_count = timeout_count + 1;
     end
-    if (rx_valid !== 1'b1)
-      timed_out = 1;
+
+    if (rx_valid_seen === 1'b1)
+      saw_valid = 1;
   end
   endtask
 
-  // Send one byte by pulsing tx_start for one clock
-  task start_tx_byte;
-    input [7:0] data_byte;
+  // --------------------------------------------------------------------------
+  // Check clean idle state
+  // --------------------------------------------------------------------------
+  task check_idle_state;
   begin
-    @(posedge clk);
-    tx_data  = data_byte;
-    tx_start = 1'b1;
-    @(posedge clk);
-    tx_start = 1'b0;
+    if ((tx !== 1'b1) ||
+        (tx_busy !== 1'b0) ||
+        (rx_valid !== 1'b0) ||
+        (framing_error !== 1'b0)) begin
+      $display("Test %0d failed", test_num);
+      $display("  Expected idle: tx=1 tx_busy=0 rx_valid=0 framing_error=0");
+      $display("  Actual idle:   tx=%b tx_busy=%b rx_valid=%b framing_error=%b",
+               tx, tx_busy, rx_valid, framing_error);
+      failures = failures + 1;
+    end
+    else begin
+      $display("Test %0d passed", test_num);
+      $display("  Expected idle: tx=1 tx_busy=0 rx_valid=0 framing_error=0");
+      $display("  Actual idle:   tx=%b tx_busy=%b rx_valid=%b framing_error=%b",
+               tx, tx_busy, rx_valid, framing_error);
+    end
+    test_num = test_num + 1;
   end
   endtask
 
-  integer timed_out;
+  // --------------------------------------------------------------------------
+  // Check received byte using latched rx_valid/rx_data
+  // --------------------------------------------------------------------------
+  task check_byte;
+    input [7:0] expected_value;
+  begin
+    if ((rx_valid_seen === 1'b1) &&
+        (rx_data_latched === expected_value) &&
+        (framing_error_seen === 1'b0)) begin
+      $display("Test %0d passed", test_num);
+      $display("  Expected: rx_data=0x%02h rx_valid_seen=1 framing_error_seen=0", expected_value);
+      $display("  Actual:   rx_data_latched=0x%02h rx_valid_seen=%b framing_error_seen=%b",
+               rx_data_latched, rx_valid_seen, framing_error_seen);
+    end
+    else begin
+      $display("Test %0d failed", test_num);
+      $display("  Expected: rx_data=0x%02h rx_valid_seen=1 framing_error_seen=0", expected_value);
+      $display("  Actual:   rx_data_latched=0x%02h rx_valid_seen=%b framing_error_seen=%b",
+               rx_data_latched, rx_valid_seen, framing_error_seen);
+      failures = failures + 1;
+    end
+    test_num = test_num + 1;
+  end
+  endtask
 
+  // --------------------------------------------------------------------------
+  // Check framing error using latched flag
+  // --------------------------------------------------------------------------
+  task check_framing_error;
+    input [7:0] expected_value;
+  begin
+    if (framing_error_seen === 1'b1) begin
+      $display("Test %0d passed", test_num);
+      $display("  Expected: framing_error observed after byte 0x%02h", expected_value);
+      $display("  Actual:   rx_data_latched=0x%02h rx_valid_seen=%b framing_error_seen=%b",
+               rx_data_latched, rx_valid_seen, framing_error_seen);
+    end
+    else begin
+      $display("Test %0d failed", test_num);
+      $display("  Expected: framing_error observed after byte 0x%02h", expected_value);
+      $display("  Actual:   rx_data_latched=0x%02h rx_valid_seen=%b framing_error_seen=%b",
+               rx_data_latched, rx_valid_seen, framing_error_seen);
+      failures = failures + 1;
+    end
+    test_num = test_num + 1;
+  end
+  endtask
+
+  // --------------------------------------------------------------------------
+  // Test sequence
+  // --------------------------------------------------------------------------
   initial begin
-    failures = 0;
-    rst      = 1'b1;
-    tx_start = 1'b0;
-    tx_data  = 8'h00;
+    rst                = 1'b1;
+    clk                = 1'b0;
+    rx                 = 1'b1;
+    tx_start           = 1'b0;
+    tx_data            = 8'h00;
+    failures           = 0;
+    test_num           = 1;
+    timeout_count      = 0;
+    valid_seen         = 0;
+    rx_valid_seen      = 1'b0;
+    rx_data_latched    = 8'h00;
+    framing_error_seen = 1'b0;
 
-    @(posedge clk);
-    @(posedge clk);
-    @(posedge clk);
-    rst = 1'b0;
-    @(posedge clk);
+    #40 rst = 1'b0;
+    #1000;
 
-    // ----------------------------
-    // Test 1: Idle state after reset
-    // ----------------------------
-    if ((tx !== 1'b1) || (tx_busy !== 1'b0) || (rx_valid !== 1'b0) || (framing_error !== 1'b0)) begin
-      $display("Test 1 failed");
-      $display("  Expected: tx=1 tx_busy=0 rx_valid=0 framing_error=0");
-      $display("  Actual:   tx=%b tx_busy=%b rx_valid=%b framing_error=%b",
-               tx, tx_busy, rx_valid, framing_error);
+    // Test 1: idle after reset
+    check_idle_state;
+
+    // Test 2: receive 0xFF
+    clear_event_latches;
+    send_byte(8'hFF);
+    wait_for_valid(valid_seen);
+    if (valid_seen !== 1) begin
+      $display("Test %0d failed", test_num);
+      $display("  Expected: rx_valid_seen asserted for byte 0xFF");
+      $display("  Actual:   timeout waiting for rx_valid_seen, rx_data_latched=0x%02h framing_error_seen=%b",
+               rx_data_latched, framing_error_seen);
       failures = failures + 1;
+      test_num = test_num + 1;
     end
     else begin
-      $display("Test 1 passed");
-      $display("  Expected: tx=1 tx_busy=0 rx_valid=0 framing_error=0");
-      $display("  Actual:   tx=%b tx_busy=%b rx_valid=%b framing_error=%b",
-               tx, tx_busy, rx_valid, framing_error);
-    end
-
-    // ----------------------------
-    // Test 2: Loopback 8'hFF
-    // Adapted from your sample testbench
-    // ----------------------------
-    start_tx_byte(8'hFF);
-    wait_for_rx_valid(timed_out);
-
-    if (timed_out != 0) begin
-      $display("Test 2 failed");
-      $display("  Expected rx_valid before timeout with rx_data=0x%02h", 8'hFF);
-      $display("  Actual:   timeout occurred, rx_data=0x%02h rx_valid=%b framing_error=%b",
-               rx_data, rx_valid, framing_error);
-      failures = failures + 1;
-    end
-    else if ((rx_data !== 8'hFF) || (framing_error !== 1'b0)) begin
-      $display("Test 2 failed");
-      $display("  Expected: rx_data=0x%02h rx_valid=1 framing_error=0", 8'hFF);
-      $display("  Actual:   rx_data=0x%02h rx_valid=%b framing_error=%b",
-               rx_data, rx_valid, framing_error);
-      failures = failures + 1;
-    end
-    else begin
-      $display("Test 2 passed");
-      $display("  Expected: rx_data=0x%02h rx_valid=1 framing_error=0", 8'hFF);
-      $display("  Actual:   rx_data=0x%02h rx_valid=%b framing_error=%b",
-               rx_data, rx_valid, framing_error);
+      check_byte(8'hFF);
     end
 
     @(posedge clk);
 
-    // ----------------------------
-    // Test 3: Loopback 8'h00
-    // ----------------------------
-    start_tx_byte(8'h00);
-    wait_for_rx_valid(timed_out);
-
-    if (timed_out != 0) begin
-      $display("Test 3 failed");
-      $display("  Expected rx_valid before timeout with rx_data=0x%02h", 8'h00);
-      $display("  Actual:   timeout occurred, rx_data=0x%02h rx_valid=%b framing_error=%b",
-               rx_data, rx_valid, framing_error);
+    // Test 3: receive 0xA5
+    clear_event_latches;
+    send_byte(8'hA5);
+    wait_for_valid(valid_seen);
+    if (valid_seen !== 1) begin
+      $display("Test %0d failed", test_num);
+      $display("  Expected: rx_valid_seen asserted for byte 0xA5");
+      $display("  Actual:   timeout waiting for rx_valid_seen, rx_data_latched=0x%02h framing_error_seen=%b",
+               rx_data_latched, framing_error_seen);
       failures = failures + 1;
-    end
-    else if ((rx_data !== 8'h00) || (framing_error !== 1'b0)) begin
-      $display("Test 3 failed");
-      $display("  Expected: rx_data=0x%02h rx_valid=1 framing_error=0", 8'h00);
-      $display("  Actual:   rx_data=0x%02h rx_valid=%b framing_error=%b",
-               rx_data, rx_valid, framing_error);
-      failures = failures + 1;
+      test_num = test_num + 1;
     end
     else begin
-      $display("Test 3 passed");
-      $display("  Expected: rx_data=0x%02h rx_valid=1 framing_error=0", 8'h00);
-      $display("  Actual:   rx_data=0x%02h rx_valid=%b framing_error=%b",
-               rx_data, rx_valid, framing_error);
+      check_byte(8'hA5);
     end
 
     @(posedge clk);
 
-    // ----------------------------
-    // Test 4: Loopback 8'hA5
-    // ----------------------------
-    start_tx_byte(8'hA5);
-    wait_for_rx_valid(timed_out);
-
-    if (timed_out != 0) begin
-      $display("Test 4 failed");
-      $display("  Expected rx_valid before timeout with rx_data=0x%02h", 8'hA5);
-      $display("  Actual:   timeout occurred, rx_data=0x%02h rx_valid=%b framing_error=%b",
-               rx_data, rx_valid, framing_error);
+    // Test 4: receive 0x3C
+    clear_event_latches;
+    send_byte(8'h3C);
+    wait_for_valid(valid_seen);
+    if (valid_seen !== 1) begin
+      $display("Test %0d failed", test_num);
+      $display("  Expected: rx_valid_seen asserted for byte 0x3C");
+      $display("  Actual:   timeout waiting for rx_valid_seen, rx_data_latched=0x%02h framing_error_seen=%b",
+               rx_data_latched, framing_error_seen);
       failures = failures + 1;
-    end
-    else if ((rx_data !== 8'hA5) || (framing_error !== 1'b0)) begin
-      $display("Test 4 failed");
-      $display("  Expected: rx_data=0x%02h rx_valid=1 framing_error=0", 8'hA5);
-      $display("  Actual:   rx_data=0x%02h rx_valid=%b framing_error=%b",
-               rx_data, rx_valid, framing_error);
-      failures = failures + 1;
+      test_num = test_num + 1;
     end
     else begin
-      $display("Test 4 passed");
-      $display("  Expected: rx_data=0x%02h rx_valid=1 framing_error=0", 8'hA5);
-      $display("  Actual:   rx_data=0x%02h rx_valid=%b framing_error=%b",
-               rx_data, rx_valid, framing_error);
+      check_byte(8'h3C);
     end
 
     @(posedge clk);
 
-    // ----------------------------
-    // Test 5: Loopback 8'h3C
-    // ----------------------------
-    start_tx_byte(8'h3C);
-    wait_for_rx_valid(timed_out);
-
-    if (timed_out != 0) begin
-      $display("Test 5 failed");
-      $display("  Expected rx_valid before timeout with rx_data=0x%02h", 8'h3C);
-      $display("  Actual:   timeout occurred, rx_data=0x%02h rx_valid=%b framing_error=%b",
-               rx_data, rx_valid, framing_error);
+    // Test 5: receive 0x00
+    clear_event_latches;
+    send_byte(8'h00);
+    wait_for_valid(valid_seen);
+    if (valid_seen !== 1) begin
+      $display("Test %0d failed", test_num);
+      $display("  Expected: rx_valid_seen asserted for byte 0x00");
+      $display("  Actual:   timeout waiting for rx_valid_seen, rx_data_latched=0x%02h framing_error_seen=%b",
+               rx_data_latched, framing_error_seen);
       failures = failures + 1;
-    end
-    else if ((rx_data !== 8'h3C) || (framing_error !== 1'b0)) begin
-      $display("Test 5 failed");
-      $display("  Expected: rx_data=0x%02h rx_valid=1 framing_error=0", 8'h3C);
-      $display("  Actual:   rx_data=0x%02h rx_valid=%b framing_error=%b",
-               rx_data, rx_valid, framing_error);
-      failures = failures + 1;
+      test_num = test_num + 1;
     end
     else begin
-      $display("Test 5 passed");
-      $display("  Expected: rx_data=0x%02h rx_valid=1 framing_error=0", 8'h3C);
-      $display("  Actual:   rx_data=0x%02h rx_valid=%b framing_error=%b",
-               rx_data, rx_valid, framing_error);
+      check_byte(8'h00);
     end
 
     @(posedge clk);
 
-    // ----------------------------
-    // Test 6: Busy should assert during transmission
-    // ----------------------------
-    start_tx_byte(8'h55);
+    // Test 6: bad stop bit should raise framing_error
+    clear_event_latches;
+    send_byte_bad_stop(8'h55);
+    #(2 * BIT_P);
     @(posedge clk);
-
-    if (tx_busy !== 1'b1) begin
-      $display("Test 6 failed");
-      $display("  Expected tx_busy: 1");
-      $display("  Actual tx_busy:   %b", tx_busy);
-      failures = failures + 1;
-    end
-    else begin
-      $display("Test 6 passed");
-      $display("  Expected tx_busy: 1");
-      $display("  Actual tx_busy:   %b", tx_busy);
-    end
-
-    wait_for_rx_valid(timed_out);
-
-    if (timed_out != 0) begin
-      $display("Test 6 failed");
-      $display("  Expected byte reception after busy period for rx_data=0x%02h", 8'h55);
-      $display("  Actual:   timeout occurred, rx_data=0x%02h rx_valid=%b framing_error=%b",
-               rx_data, rx_valid, framing_error);
-      failures = failures + 1;
-    end
-    else if ((rx_data !== 8'h55) || (framing_error !== 1'b0)) begin
-      $display("Test 6 failed");
-      $display("  Expected: rx_data=0x%02h rx_valid=1 framing_error=0", 8'h55);
-      $display("  Actual:   rx_data=0x%02h rx_valid=%b framing_error=%b",
-               rx_data, rx_valid, framing_error);
-      failures = failures + 1;
-    end
-    else begin
-      $display("Test 6 passed");
-      $display("  Expected: rx_data=0x%02h rx_valid=1 framing_error=0", 8'h55);
-      $display("  Actual:   rx_data=0x%02h rx_valid=%b framing_error=%b",
-               rx_data, rx_valid, framing_error);
-    end
-
     @(posedge clk);
+    check_framing_error(8'h55);
 
-    // ----------------------------
-    // Test 7: Reset restores clean idle state
-    // ----------------------------
+    // Test 7: reset restores clean state
     rst = 1'b1;
     @(posedge clk);
     @(posedge clk);
     rst = 1'b0;
     @(posedge clk);
+    check_idle_state;
 
-    if ((tx !== 1'b1) || (tx_busy !== 1'b0) || (rx_valid !== 1'b0) || (framing_error !== 1'b0)) begin
-      $display("Test 7 failed");
-      $display("  Expected after reset: tx=1 tx_busy=0 rx_valid=0 framing_error=0");
-      $display("  Actual after reset:   tx=%b tx_busy=%b rx_valid=%b framing_error=%b",
-               tx, tx_busy, rx_valid, framing_error);
-      failures = failures + 1;
-    end
-    else begin
-      $display("Test 7 passed");
-      $display("  Expected after reset: tx=1 tx_busy=0 rx_valid=0 framing_error=0");
-      $display("  Actual after reset:   tx=%b tx_busy=%b rx_valid=%b framing_error=%b",
-               tx, tx_busy, rx_valid, framing_error);
-    end
-
-    // ----------------------------
-    // Test 8: Loopback still works after reset
-    // ----------------------------
-    start_tx_byte(8'hC3);
-    wait_for_rx_valid(timed_out);
-
-    if (timed_out != 0) begin
-      $display("Test 8 failed");
-      $display("  Expected rx_valid before timeout with rx_data=0x%02h", 8'hC3);
-      $display("  Actual:   timeout occurred, rx_data=0x%02h rx_valid=%b framing_error=%b",
-               rx_data, rx_valid, framing_error);
-      failures = failures + 1;
-    end
-    else if ((rx_data !== 8'hC3) || (framing_error !== 1'b0)) begin
-      $display("Test 8 failed");
-      $display("  Expected: rx_data=0x%02h rx_valid=1 framing_error=0", 8'hC3);
-      $display("  Actual:   rx_data=0x%02h rx_valid=%b framing_error=%b",
-               rx_data, rx_valid, framing_error);
-      failures = failures + 1;
-    end
-    else begin
-      $display("Test 8 passed");
-      $display("  Expected: rx_data=0x%02h rx_valid=1 framing_error=0", 8'hC3);
-      $display("  Actual:   rx_data=0x%02h rx_valid=%b framing_error=%b",
-               rx_data, rx_valid, framing_error);
-    end
+    $display("BIT RATE  : %0db/s", BIT_RATE);
+    $display("BIT PERIOD: %0dns", BIT_P);
+    $display("CLK PERIOD: %0dns", CLK_P);
 
     if (failures == 0)
       $display("All tests passed!");
     else
       $display("Some tests failed");
 
-    $finish;
+    $display("Finish simulation at time %0d", $time);
+    $finish();
   end
 
 endmodule

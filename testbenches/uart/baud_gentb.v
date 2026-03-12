@@ -1,4 +1,4 @@
-`timescale 1ns/1ps
+`timescale 1ns / 1ps
 
 module baud_gentb;
 
@@ -14,7 +14,6 @@ module baud_gentb;
   integer failures;
   integer baud_count;
   integer oversample_count;
-  integer cycle_count;
 
   // DUT
   baud_gen
@@ -36,15 +35,13 @@ module baud_gentb;
     forever #(CLOCK_PERIOD_NS/2) clk = ~clk;
   end
 
-  // Count observed ticks
+  // Tick counters
   always @(posedge clk) begin
     if (rst) begin
       baud_count       <= 0;
       oversample_count <= 0;
-      cycle_count      <= 0;
     end
     else begin
-      cycle_count <= cycle_count + 1;
       if (baud_tick)
         baud_count <= baud_count + 1;
       if (oversample_tick)
@@ -54,40 +51,40 @@ module baud_gentb;
 
   initial begin
     failures = 0;
+    baud_count = 0;
+    oversample_count = 0;
 
-    // Initialize
     rst = 1'b1;
     @(posedge clk);
     @(posedge clk);
     @(posedge clk);
-
-    // ----------------------------
-    // Test 1: Reset clears outputs/counters behavior window starts cleanly
-    // ----------------------------
     rst = 1'b0;
+    @(posedge clk);
 
-    if ((baud_tick !== 1'b0) && (oversample_tick !== 1'b0)) begin
+    // ----------------------------
+    // Test 1: Clean startup after reset release
+    // ----------------------------
+    if ((baud_tick !== 1'b0) || (oversample_tick !== 1'b0)) begin
       $display("Test 1 failed");
-      $display("  Expected: baud_tick=0 or oversample_tick=0 immediately after reset release");
+      $display("  Expected: baud_tick=0 oversample_tick=0");
       $display("  Actual:   baud_tick=%b oversample_tick=%b", baud_tick, oversample_tick);
       failures = failures + 1;
     end
     else begin
       $display("Test 1 passed");
-      $display("  Expected: clean startup after reset release");
+      $display("  Expected: baud_tick=0 oversample_tick=0");
       $display("  Actual:   baud_tick=%b oversample_tick=%b", baud_tick, oversample_tick);
     end
 
     // ----------------------------
     // Test 2: oversample_tick count over one baud period
-    // For CLKS_PER_BIT=16 and OVERSAMPLE=4,
-    // expect 4 oversample ticks in 16 clock cycles
+    // Expect 4 oversample ticks in 16 clock cycles
     // ----------------------------
     baud_count       = 0;
     oversample_count = 0;
-    cycle_count      = 0;
 
     repeat (CLKS_PER_BIT) @(posedge clk);
+    @(posedge clk);  // allow counter updates to settle
 
     if (oversample_count !== OVERSAMPLE) begin
       $display("Test 2 failed");
@@ -103,7 +100,7 @@ module baud_gentb;
 
     // ----------------------------
     // Test 3: baud_tick count over one baud period
-    // Expect exactly 1 baud tick in 16 cycles
+    // Expect exactly 1 baud tick in 16 clock cycles
     // ----------------------------
     if (baud_count !== 1) begin
       $display("Test 3 failed");
@@ -119,13 +116,13 @@ module baud_gentb;
 
     // ----------------------------
     // Test 4: baud_tick count over two baud periods
-    // Expect 2 baud ticks in 32 cycles
+    // Expect 2 baud ticks in 32 clock cycles
     // ----------------------------
     baud_count       = 0;
     oversample_count = 0;
-    cycle_count      = 0;
 
     repeat (2*CLKS_PER_BIT) @(posedge clk);
+    @(posedge clk);  // allow counter updates to settle
 
     if (baud_count !== 2) begin
       $display("Test 4 failed");
@@ -141,7 +138,7 @@ module baud_gentb;
 
     // ----------------------------
     // Test 5: oversample_tick count over two baud periods
-    // Expect 8 oversample ticks in 32 cycles
+    // Expect 8 oversample ticks in 32 clock cycles
     // ----------------------------
     if (oversample_count !== (2*OVERSAMPLE)) begin
       $display("Test 5 failed");
@@ -156,8 +153,7 @@ module baud_gentb;
     end
 
     // ----------------------------
-    // Test 6: Mid-run reset restarts timing cleanly
-    // Run some cycles, reset, then verify one baud period again
+    // Test 6: Reset restarts timing cleanly
     // ----------------------------
     repeat (5) @(posedge clk);
     rst = 1'b1;
@@ -167,9 +163,9 @@ module baud_gentb;
 
     baud_count       = 0;
     oversample_count = 0;
-    cycle_count      = 0;
 
     repeat (CLKS_PER_BIT) @(posedge clk);
+    @(posedge clk);  // allow counter updates to settle
 
     if ((baud_count !== 1) || (oversample_count !== OVERSAMPLE)) begin
       $display("Test 6 failed");
@@ -183,7 +179,6 @@ module baud_gentb;
       $display("  Actual after reset:   baud_count=%0d oversample_count=%0d", baud_count, oversample_count);
     end
 
-    // Final summary
     if (failures == 0)
       $display("All tests passed!");
     else

@@ -1,9 +1,9 @@
 # Recurrent Optimization via Machine Editing: ROME
 The ROME tool automates hardware design with minimal human input. A large language model (LLM) is utilized to generate Verilog and fix errors in the resultant modules within a multi-stage design pipeline.
 
-![ROME-flowchart](https://github.com/ajn313/ROME-LLM/blob/main/supplements/flowchart.png)
+![ROME-flowchart](https://github.com/ajn313/ROME-LLM/blob/main/supplements/flowchart.png)  
 
-We provide a [Colab notebook](https://github.com/ajn313/ROME-LLM/blob/main/ROME_Demo_ADHP.ipynb) which implements the tool. ChatGPT is used by default which will require an OpenAI API Key, but most major frontier models are supported, just uncomment the relevant lines of code & comment out the corresponding OpenAI lines.
+We provide a [Colab notebook](https://github.com/ajn313/ROME-LLM/blob/main/ROME_Demo_ADHP_PPA_Opt.ipynb) which implements the tool. ChatGPT is used by default which will require an OpenAI API Key, but most major frontier models are supported, just uncomment the relevant lines of code & comment out the corresponding OpenAI lines.
 
 The necessary inputs include the names of a series of simpler submodules which can be built up into a more complex target modules, as well as unit testbenches for each submodule. We include testbenches for a few hierarchical arcitectures, and more will continue to be added. 
 
